@@ -8,7 +8,7 @@
 
 ## 1. What is already live (verified 2026-08-08)
 
-- **Lovable Cloud enabled** on project `48681bee-...`; Supabase project `crvofsqxxxdqyhxnaiqw` (Tokyo, Tiny, 0.27/2 GB).
+- **Lovable Cloud enabled** on project `48681bee-...`; Supabase project `hhslcnrjndxoxedvante` (Tokyo, Tiny, 0.27/2 GB).
 - **Google sign-in: "Managed by Lovable"** — OAuth fully configured, nothing to touch.
 - **Secret set:** `COACH_GOOGLE_EMAIL` (created Aug 7) + `LOVABLE_API_KEY`.
 - **Edge functions deployed:** `account-bootstrap` (Google → Coach/Client via COACH_GOOGLE_EMAIL), `program-cover-media`, `progress-picture-media` — all responding (verified).
