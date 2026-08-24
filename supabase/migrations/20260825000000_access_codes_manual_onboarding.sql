@@ -96,8 +96,11 @@ ALTER TABLE public.access_code_attempts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.access_code_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.client_program_bundles ENABLE ROW LEVEL SECURITY;
 
--- The ONLY rule on these tables: a client may read their own bundle row.
--- (Insert/update/delete happen exclusively through SECURITY DEFINER RPCs.)
+-- The ONLY rules on these tables:
+--   * bundles: a client may SELECT their own row (RLS + table grant; own-row only).
+--   * everything else: service-role only — no table access at all.
+GRANT SELECT ON public.client_program_bundles TO authenticated;
+
 DROP POLICY IF EXISTS "Clients can read their own program bundle" ON public.client_program_bundles;
 CREATE POLICY "Clients can read their own program bundle"
   ON public.client_program_bundles FOR SELECT
@@ -358,8 +361,8 @@ BEGIN
     RETURN;
   END IF;
 
-  INSERT INTO public.chat_messages (thread_id, sender_account_id, body)
-  VALUES (v_thread_id, v_coach_id, v_body);
+  INSERT INTO public.chat_messages (id, thread_id, sender_account_id, body)
+  VALUES (gen_random_uuid(), v_thread_id, v_coach_id, v_body);
 
   UPDATE public.chat_threads
   SET last_message_body = v_body,
@@ -381,3 +384,63 @@ GRANT EXECUTE ON FUNCTION public.approve_client(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.publish_client_program(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_client_program_bundle() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.append_onboarding_greeting(uuid) TO authenticated;
+
+-- ------------------------------------------------------------------------
+-- 11. Chat thread creation hardening (same logic as 20260722173000, shadow-safe)
+--     The original declared local variables named `thread_id` / `coach_id`,
+--     which collide with chat_reads columns in the INSERT ... ON CONFLICT
+--     statement. Postgres versions differ on whether that is an error
+--     ("column reference is ambiguous"). Renamed to v_thread_id / v_coach_id.
+-- ------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.get_or_create_chat_thread(p_client_id uuid)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_thread_id uuid;
+  v_coach_id  uuid;
+BEGIN
+  IF NOT (public.owns_app_account(p_client_id) OR public.is_app_coach()) THEN
+    RAISE EXCEPTION 'You cannot access this Client conversation';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.app_accounts
+    WHERE id = p_client_id AND role = 'client'
+  ) THEN
+    RAISE EXCEPTION 'Client account was not found';
+  END IF;
+
+  SELECT id INTO v_coach_id
+  FROM public.app_accounts
+  WHERE role = 'coach' AND is_preview = false
+  LIMIT 1;
+  IF v_coach_id IS NULL THEN
+    RAISE EXCEPTION 'Coach account was not found';
+  END IF;
+
+  SELECT id INTO v_thread_id
+  FROM public.chat_threads
+  WHERE client_id = p_client_id;
+  IF v_thread_id IS NULL THEN
+    INSERT INTO public.chat_threads (client_id, coach_id)
+    VALUES (p_client_id, v_coach_id)
+    ON CONFLICT (client_id) DO NOTHING
+    RETURNING id INTO v_thread_id;
+    IF v_thread_id IS NULL THEN
+      SELECT id INTO v_thread_id
+      FROM public.chat_threads
+      WHERE client_id = p_client_id;
+    END IF;
+  END IF;
+
+  INSERT INTO public.chat_reads (thread_id, account_id)
+  VALUES (v_thread_id, p_client_id), (v_thread_id, v_coach_id)
+  ON CONFLICT (thread_id, account_id) DO NOTHING;
+  RETURN v_thread_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.get_or_create_chat_thread(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_or_create_chat_thread(uuid) TO authenticated;
