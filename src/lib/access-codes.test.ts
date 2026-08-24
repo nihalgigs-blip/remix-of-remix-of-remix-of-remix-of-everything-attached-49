@@ -93,12 +93,13 @@ describe("B1 migration guards (server-side security must stay)", () => {
     expect(migration).toMatch(/REVOKE ALL ON public\.access_code_attempts FROM PUBLIC, anon, authenticated/);
     expect(migration).toMatch(/REVOKE ALL ON public\.access_code_events FROM PUBLIC, anon, authenticated/);
     expect(migration).toMatch(/REVOKE ALL ON public\.client_program_bundles FROM PUBLIC, anon, authenticated/);
-    // No table-level GRANTs to authenticated on any of them (the bundle SELECT policy
-    // is the only authenticated read, and it is scoped to the caller's own row).
+    // Codes/attempts/events: no grants to anon/authenticated at all.
     expect(migration).not.toMatch(/GRANT [A-Z, ]+ ON public\.access_codes TO/);
     expect(migration).not.toMatch(/GRANT [A-Z, ]+ ON public\.access_code_attempts TO/);
     expect(migration).not.toMatch(/GRANT [A-Z, ]+ ON public\.access_code_events TO/);
-    expect(migration).not.toMatch(/GRANT [A-Z, ]+ ON public\.client_program_bundles TO/);
+    // Bundles: only a SELECT grant (own row read backstop); no write grants.
+    expect(migration).toMatch(/GRANT SELECT ON public\.client_program_bundles TO authenticated/);
+    expect(migration).not.toMatch(/GRANT (INSERT|UPDATE|DELETE)[A-Z, ]* ON public\.client_program_bundles TO/);
   });
 
   test("owner-only lock stays: no UPDATE grant on approved_at / onboarding for clients", () => {
@@ -134,5 +135,13 @@ describe("B1 migration guards (server-side security must stay)", () => {
       /\. How many times a week do you usually work out right now, brother\?/,
     );
     expect(migration).toMatch(/existing\.body LIKE 'Welcome to No More Copium,%'/);
+  });
+
+  test("chat thread creation is hardened against ambiguous column names (v_thread_id / v_coach_id)", () => {
+    expect(migration).toMatch(/v_thread_id uuid/);
+    expect(migration).toMatch(/v_coach_id  uuid/);
+    expect(migration).toMatch(/VALUES \(v_thread_id, p_client_id\), \(v_thread_id, v_coach_id\)/);
+    expect(migration).not.toMatch(/VALUES \(thread_id, p_client_id\)/);
+    expect(migration).toMatch(/GRANT EXECUTE ON FUNCTION public\.get_or_create_chat_thread\(uuid\) TO authenticated/);
   });
 });
