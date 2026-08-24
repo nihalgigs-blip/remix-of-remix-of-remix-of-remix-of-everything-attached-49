@@ -81,9 +81,17 @@ describe("payment manager UI overhaul", () => {
     expect(access).not.toMatch(/Coach Mode/);
     expect(access).not.toMatch(/Payment Mode/);
     expect(access).not.toMatch(/Create a new local account/);
-    const landing = read("../components/landing/LandingPage.tsx");
-    expect(landing).toMatch(/GoogleSignInButton/);
-    expect(landing).not.toMatch(/to="\/access"/);
+    // The old landing is archived (kept in the repo) but must not be active:
+    // it stays in landing-archive/ and the root route no longer uses it.
+    const archivedLanding = read("../../landing-archive/LandingPage.tsx");
+    expect(archivedLanding).toMatch(/GoogleSignInButton/);
+    expect(archivedLanding).not.toMatch(/to="\/access"/);
+    // The root route is now the stripped-down welcome screen that leads to /access.
+    const indexRoute = read("../routes/index.tsx");
+    expect(indexRoute).toMatch(/You made it, brother/);
+    expect(indexRoute).toMatch(/Welcome to No More Copium/);
+    expect(indexRoute).toMatch(/to="\/access"/);
+    expect(indexRoute).not.toMatch(/GoogleSignInButton/);
     const route = read("../routes/access.tsx");
     expect(route).not.toMatch(/Local development prototype/);
   });
