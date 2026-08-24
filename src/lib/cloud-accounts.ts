@@ -10,13 +10,14 @@ export type AppAccount = {
   isPreview: boolean;
   onboardingStep: number;
   onboardingCompletedAt?: string;
+  approvedAt?: string;
   assignedProgramId?: string;
   createdAt: string;
 };
 
 export const ACTIVE_ACCOUNT_STORAGE_KEY = "no-more-copium:active-account:v3";
 export const LOCAL_ACCOUNTS_STORAGE_KEY = "no-more-copium:accounts:v3";
-export const USERNAME_PATTERN = /^[A-Za-z0-9_]+$/;
+export const USERNAME_PATTERN = /^[a-z0-9_]+$/;
 export const USERNAME_MIN_LENGTH = 3;
 export const USERNAME_MAX_LENGTH = 30;
 
@@ -35,7 +36,7 @@ export function validateUsername(value: string): string | null {
     return `Username must be ${USERNAME_MIN_LENGTH}–${USERNAME_MAX_LENGTH} characters.`;
   }
   if (!USERNAME_PATTERN.test(username)) {
-    return "Use only A–Z, a–z, 0–9, and underscores.";
+    return "Use only lowercase letters (a–z), numbers, and underscores.";
   }
   return null;
 }
@@ -53,6 +54,8 @@ function mapRow(row: Record<string, unknown>): AppAccount {
       typeof row.onboarding_completed_at === "string"
         ? row.onboarding_completed_at
         : undefined,
+    approvedAt:
+      typeof row.approved_at === "string" ? row.approved_at : undefined,
     assignedProgramId:
       typeof row.assigned_program_id === "string" ? row.assigned_program_id : undefined,
     createdAt: String(row.created_at ?? new Date().toISOString()),
@@ -64,7 +67,7 @@ export async function fetchAccount(accountId: string): Promise<AppAccount | null
   const { data, error } = await supabase
     .from("app_accounts")
     .select(
-      "id, name, username, role, is_preview, onboarding_step, onboarding_completed_at, assigned_program_id, created_at",
+      "id, name, username, role, is_preview, onboarding_step, onboarding_completed_at, approved_at, assigned_program_id, created_at",
     )
     .eq("id", accountId)
     .maybeSingle();
@@ -78,7 +81,7 @@ export async function fetchAccounts(): Promise<AppAccount[]> {
   const { data: rows, error } = await supabase
     .from("app_accounts")
     .select(
-      "id, name, username, role, is_preview, onboarding_step, onboarding_completed_at, assigned_program_id, created_at",
+      "id, name, username, role, is_preview, onboarding_step, onboarding_completed_at, approved_at, assigned_program_id, created_at",
     )
     .eq("is_preview", false)
     .order("created_at", { ascending: true });
@@ -90,7 +93,7 @@ export async function fetchPublicCoachAccount(): Promise<AppAccount | null> {
   const { data, error } = await supabase
     .from("app_accounts")
     .select(
-      "id, name, username, role, is_preview, onboarding_step, onboarding_completed_at, assigned_program_id, created_at",
+      "id, name, username, role, is_preview, onboarding_step, onboarding_completed_at, approved_at, assigned_program_id, created_at",
     )
     .eq("role", "coach")
     .eq("is_preview", false)
@@ -179,7 +182,7 @@ export async function updateLocalAccount(
     .update(payload)
     .eq("id", accountId)
     .select(
-      "id, name, username, role, is_preview, onboarding_step, onboarding_completed_at, assigned_program_id, created_at",
+      "id, name, username, role, is_preview, onboarding_step, onboarding_completed_at, approved_at, assigned_program_id, created_at",
     )
     .maybeSingle();
   if (error || !data) {

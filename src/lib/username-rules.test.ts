@@ -5,13 +5,20 @@ import {
   validateUsername,
 } from "./cloud-accounts";
 
-describe("username rules — A–Z, a–z, 0–9, underscore only", () => {
-  test("accepts letters, numbers, and underscores (any case)", () => {
-    expect(validateUsername("John")).toBeNull();
+describe("username rules — lowercase a–z, 0–9, underscore ONLY", () => {
+  test("accepts lowercase letters, numbers, and underscores", () => {
+    expect(validateUsername("john")).toBeNull();
     expect(validateUsername("john_doe")).toBeNull();
-    expect(validateUsername("ABC123")).toBeNull();
+    expect(validateUsername("abc123")).toBeNull();
     expect(validateUsername("_underscore_")).toBeNull();
-    expect(validateUsername("a1_b2C3")).toBeNull();
+    expect(validateUsername("a1_b2c3")).toBeNull();
+  });
+
+  test("rejects UPPERCASE letters (new rule)", () => {
+    expect(validateUsername("John")).not.toBeNull();
+    expect(validateUsername("ABC123")).not.toBeNull();
+    expect(validateUsername("a1_b2C3")).not.toBeNull();
+    expect(validateUsername("JOHN_1")).not.toBeNull();
   });
 
   test("rejects spaces, symbols, and non-English characters", () => {
@@ -31,7 +38,7 @@ describe("username rules — A–Z, a–z, 0–9, underscore only", () => {
   });
 
   test("normalize trims but preserves case; key is case-insensitive", () => {
-    expect(normalizeUsername("  John_1  ")).toBe("John_1");
+    expect(normalizeUsername("  john_1  ")).toBe("john_1");
     expect(usernameKey("John_1")).toBe("john_1");
     expect(usernameKey("JOHN_1")).toBe("john_1");
     expect(usernameKey("john_1")).toBe("john_1");
