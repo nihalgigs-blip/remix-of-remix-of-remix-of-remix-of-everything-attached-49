@@ -14,6 +14,7 @@ import {
   markChatRead,
   sendChatMessage,
 } from "@/lib/chat";
+import { approveClientWithProgram } from "@/lib/access-codes";
 import { fetchAccount, type AppAccount } from "@/lib/cloud-accounts";
 import { LOCAL_CHAT_CHANGED_EVENT } from "@/lib/local-events";
 import {
@@ -35,7 +36,9 @@ export function ChatConversation({ clientId }: { clientId: string }) {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [approving, setApproving] = useState(false);
+  const [approvingCloud, setApprovingCloud] = useState(false);
   const [joinRequestPending, setJoinRequestPending] = useState(false);
+  const [approvalError, setApprovalError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -134,6 +137,26 @@ export function ChatConversation({ clientId }: { clientId: string }) {
     }
   };
 
+  const approveCloud = async () => {
+    if (account.role !== "coach" || !peer || approvingCloud || !peer.assignedProgramId) return;
+    if (!window.confirm("Approve this client and unlock full access?")) return;
+    setApprovingCloud(true);
+    setApprovalError(null);
+    try {
+      await approveClientWithProgram(peer.id);
+      setPeer({ ...peer, approvedAt: new Date().toISOString() });
+    } catch (nextError) {
+      console.error(nextError);
+      setApprovalError(
+        nextError instanceof Error
+          ? nextError.message
+          : "The client could not be approved.",
+      );
+    } finally {
+      setApprovingCloud(false);
+    }
+  };
+
   const approve = async () => {
     if (account.role !== "coach" || !joinRequestPending || approving) return;
     if (!window.confirm("Approve this Client and unlock the app?")) return;
@@ -171,6 +194,43 @@ export function ChatConversation({ clientId }: { clientId: string }) {
           {peer && <p className="truncate text-[1rem] leading-5 text-muted-foreground">@{peer.username}</p>}
         </div>
       </div>
+
+      {account.role === "coach" && peer && !peer.approvedAt && (
+        <div className="mt-4 space-y-3 rounded-xl border border-[#E50910]/40 bg-[#E50910]/5 p-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-[1rem] font-semibold leading-5 text-foreground">
+              Awaiting approval
+            </p>
+            <p className="mt-1 text-[1rem] leading-5 text-muted-foreground">
+              {peer.assignedProgramId
+                ? "Approve to give this client full access to their program, workout history, progress pictures, and chat."
+                : "Assign a training program on the client page first, then approve them here."}
+            </p>
+          </div>
+          {approvalError && (
+            <p className="rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-[1rem] leading-5 text-destructive" role="alert">
+              {approvalError}
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-3">
+            {!peer.assignedProgramId && (
+              <Button asChild variant="outline" className="min-h-11 rounded-xl text-[1rem] font-semibold">
+                <Link to="/coach/clients/$clientId" params={{ clientId: peer.id }}>
+                  Assign a program
+                </Link>
+              </Button>
+            )}
+            <Button
+              type="button"
+              disabled={approvingCloud || !peer.assignedProgramId}
+              onClick={() => void approveCloud()}
+              className="min-h-11 rounded-xl text-[1rem] font-semibold"
+            >
+              {approvingCloud ? "Approving…" : "Approve client"}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {account.role === "coach" && joinRequestPending && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
