@@ -199,3 +199,57 @@ describe("B2 edge function guards (security invariants stay)", () => {
     expect(src).not.toMatch(/ensurePreviewAccount/);
   });
 });
+
+describe("B3 coach UI guards", () => {
+  const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8");
+
+  test("Access Codes page: generate, reveal-once modal, list, revoke", () => {
+    const page = read("../components/coach/AccessCodesPage.tsx");
+    expect(page).toMatch(/Generate access code/);
+    expect(page).toMatch(/listAccessCodes/);
+    expect(page).toMatch(/revokeAccessCode/);
+    expect(page).toMatch(/CodeRevealDialog/);
+    expect(page).toMatch(/The code appears once/);
+  });
+
+  test("reveal dialog never re-requests the code and warns it works once", () => {
+    const dialog = read("../components/coach/CodeRevealDialog.tsx");
+    expect(dialog).toMatch(/works once and/);
+    expect(dialog).toMatch(/shown only once/);
+    expect(dialog).not.toMatch(/listAccessCodes/);
+    expect(dialog).not.toMatch(/fetch/);
+    expect(dialog).toMatch(/Copy code/);
+  });
+
+  test("coach shell links to Access Codes and the route exists", () => {
+    const shell = read("../components/coach/CoachShell.tsx");
+    expect(shell).toMatch(/\/coach\/access-codes/);
+    expect(shell).toMatch(/Access Codes/);
+    const route = read("../routes/coach.access-codes.tsx");
+    expect(route).toMatch(/createFileRoute\("\/coach\/access-codes"\)/);
+    expect(route).toMatch(/AccessCodesPage/);
+  });
+
+  test("dashboard marks unapproved clients as Awaiting approval", () => {
+    const dashboard = read("../components/coach/CoachDashboard.tsx");
+    expect(dashboard).toMatch(/Awaiting approval/);
+    expect(dashboard).toMatch(/approvedAt/);
+  });
+
+  test("client management: issue code + approve (program-required) + revealed dialog", () => {
+    const page = read("../components/coach/ClientManagement.tsx");
+    expect(page).toMatch(/Issue access code/);
+    expect(page).toMatch(/Approve client/);
+    expect(page).toMatch(/Assign a training program before approving|Assign a training program above/);
+    expect(page).toMatch(/CodeRevealDialog/);
+    expect(page).toMatch(/approveClientWithProgram/);
+  });
+
+  test("conversation: coach sees awaiting-approval card and can approve with program", () => {
+    const conversation = read("../components/chat/ChatConversation.tsx");
+    expect(conversation).toMatch(/Awaiting approval/);
+    expect(conversation).toMatch(/approveClientWithProgram/);
+    expect(conversation).toMatch(/Approving…|Approve client/);
+    expect(conversation).toMatch(/Assign a training program on the client page/);
+  });
+});

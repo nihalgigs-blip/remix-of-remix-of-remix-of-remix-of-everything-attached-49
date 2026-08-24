@@ -32,6 +32,13 @@ export type AccessCodeStatus =
   | "revoked"
   | "locked";
 
+export type AccessCodeEvent = {
+  event: string;
+  actor: string;
+  createdAt: string;
+  detail?: string;
+};
+
 export type AccessCodeSummary = {
   id: string;
   prefix: string;
@@ -43,6 +50,7 @@ export type AccessCodeSummary = {
   redeemedAt?: string;
   usedAt?: string;
   revokedAt?: string;
+  events: AccessCodeEvent[];
 };
 
 export type RedeemAccessCodeResult = {
@@ -196,4 +204,22 @@ export async function loginCoach(password: string): Promise<{
     throw invokeError(data, "Sign in failed.");
   }
   return data as { session: { access_token: string; refresh_token: string }; account: AppAccount };
+}
+
+/** Coach: publish the client's program snapshot from the library (B1 RPC). */
+export async function publishClientProgram(clientId: string): Promise<void> {
+  const { error } = await supabase.rpc("publish_client_program", { p_client_id: clientId });
+  if (error) throw new Error(error.message || "The program snapshot could not be published.");
+}
+
+/** Coach: approve a client (requires a program assignment) — unlocks full access (B1 RPC). */
+export async function approveClient(clientId: string): Promise<void> {
+  const { error } = await supabase.rpc("approve_client", { p_client_id: clientId });
+  if (error) throw new Error(error.message || "The client could not be approved.");
+}
+
+/** Coach: approve a client AND publish their program snapshot (single action). */
+export async function approveClientWithProgram(clientId: string): Promise<void> {
+  await publishClientProgram(clientId);
+  await approveClient(clientId);
 }

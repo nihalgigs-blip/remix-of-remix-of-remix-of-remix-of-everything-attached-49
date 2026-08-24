@@ -22,6 +22,7 @@ import { Route as CoachLibraryRouteImport } from './routes/coach.library'
 import { Route as CoachExercisesRouteImport } from './routes/coach.exercises'
 import { Route as CoachDashboardRouteImport } from './routes/coach.dashboard'
 import { Route as CoachChatRouteImport } from './routes/coach.chat'
+import { Route as CoachAccessCodesRouteImport } from './routes/coach.access-codes'
 import { Route as ClientWorkoutHistoryRouteImport } from './routes/client.workout-history'
 import { Route as ClientProgressPicturesRouteImport } from './routes/client.progress-pictures'
 import { Route as ClientProgramRouteImport } from './routes/client.program'
@@ -112,6 +113,11 @@ const CoachDashboardRoute = CoachDashboardRouteImport.update({
 const CoachChatRoute = CoachChatRouteImport.update({
   id: '/chat',
   path: '/chat',
+  getParentRoute: () => CoachRoute,
+} as any)
+const CoachAccessCodesRoute = CoachAccessCodesRouteImport.update({
+  id: '/access-codes',
+  path: '/access-codes',
   getParentRoute: () => CoachRoute,
 } as any)
 const ClientWorkoutHistoryRoute = ClientWorkoutHistoryRouteImport.update({
@@ -269,6 +275,7 @@ export interface FileRoutesByFullPath {
   '/client/program': typeof ClientProgramRouteWithChildren
   '/client/progress-pictures': typeof ClientProgressPicturesRouteWithChildren
   '/client/workout-history': typeof ClientWorkoutHistoryRoute
+  '/coach/access-codes': typeof CoachAccessCodesRoute
   '/coach/chat': typeof CoachChatRouteWithChildren
   '/coach/dashboard': typeof CoachDashboardRoute
   '/coach/exercises': typeof CoachExercisesRoute
@@ -308,6 +315,7 @@ export interface FileRoutesByTo {
   '/client/chat': typeof ClientChatRoute
   '/client/dashboard': typeof ClientDashboardRoute
   '/client/workout-history': typeof ClientWorkoutHistoryRoute
+  '/coach/access-codes': typeof CoachAccessCodesRoute
   '/coach/dashboard': typeof CoachDashboardRoute
   '/coach/exercises': typeof CoachExercisesRoute
   '/payment/dashboard': typeof PaymentDashboardRoute
@@ -343,6 +351,7 @@ export interface FileRoutesById {
   '/client/program': typeof ClientProgramRouteWithChildren
   '/client/progress-pictures': typeof ClientProgressPicturesRouteWithChildren
   '/client/workout-history': typeof ClientWorkoutHistoryRoute
+  '/coach/access-codes': typeof CoachAccessCodesRoute
   '/coach/chat': typeof CoachChatRouteWithChildren
   '/coach/dashboard': typeof CoachDashboardRoute
   '/coach/exercises': typeof CoachExercisesRoute
@@ -386,6 +395,7 @@ export interface FileRouteTypes {
     | '/client/program'
     | '/client/progress-pictures'
     | '/client/workout-history'
+    | '/coach/access-codes'
     | '/coach/chat'
     | '/coach/dashboard'
     | '/coach/exercises'
@@ -425,6 +435,7 @@ export interface FileRouteTypes {
     | '/client/chat'
     | '/client/dashboard'
     | '/client/workout-history'
+    | '/coach/access-codes'
     | '/coach/dashboard'
     | '/coach/exercises'
     | '/payment/dashboard'
@@ -459,6 +470,7 @@ export interface FileRouteTypes {
     | '/client/program'
     | '/client/progress-pictures'
     | '/client/workout-history'
+    | '/coach/access-codes'
     | '/coach/chat'
     | '/coach/dashboard'
     | '/coach/exercises'
@@ -589,6 +601,13 @@ declare module '@tanstack/react-router' {
       path: '/chat'
       fullPath: '/coach/chat'
       preLoaderRoute: typeof CoachChatRouteImport
+      parentRoute: typeof CoachRoute
+    }
+    '/coach/access-codes': {
+      id: '/coach/access-codes'
+      path: '/access-codes'
+      fullPath: '/coach/access-codes'
+      preLoaderRoute: typeof CoachAccessCodesRouteImport
       parentRoute: typeof CoachRoute
     }
     '/client/workout-history': {
@@ -940,6 +959,7 @@ const CoachProgramsRouteWithChildren = CoachProgramsRoute._addFileChildren(
 )
 
 interface CoachRouteChildren {
+  CoachAccessCodesRoute: typeof CoachAccessCodesRoute
   CoachChatRoute: typeof CoachChatRouteWithChildren
   CoachDashboardRoute: typeof CoachDashboardRoute
   CoachExercisesRoute: typeof CoachExercisesRoute
@@ -949,6 +969,7 @@ interface CoachRouteChildren {
 }
 
 const CoachRouteChildren: CoachRouteChildren = {
+  CoachAccessCodesRoute: CoachAccessCodesRoute,
   CoachChatRoute: CoachChatRouteWithChildren,
   CoachDashboardRoute: CoachDashboardRoute,
   CoachExercisesRoute: CoachExercisesRoute,

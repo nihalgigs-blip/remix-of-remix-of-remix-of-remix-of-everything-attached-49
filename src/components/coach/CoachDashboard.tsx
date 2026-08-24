@@ -67,10 +67,23 @@ export function CoachDashboard() {
                   aria-label={`Manage ${client.username}`}
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">{client.name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-medium text-foreground">{client.name}</p>
+                      {!client.approvedAt && (
+                        <span className="shrink-0 rounded-md border border-[#E50910]/40 bg-[#E50910]/10 px-1.5 py-0.5 text-[0.6875rem] font-semibold uppercase tracking-wide text-[#E50910]">
+                          Awaiting approval
+                        </span>
+                      )}
+                    </div>
                     <p className="truncate text-xs text-muted-foreground">@{client.username}</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      {client.assignedProgramId ? "Program assigned" : "No program assigned"}
+                      {client.approvedAt
+                        ? client.assignedProgramId
+                          ? "Approved · Program assigned"
+                          : "Approved · No program assigned"
+                        : client.assignedProgramId
+                          ? "Unapproved · Program assigned"
+                          : "Unapproved · No program assigned"}
                     </p>
                   </div>
                   <ChevronRight

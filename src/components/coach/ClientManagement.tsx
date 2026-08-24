@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, BadgeCheck, KeyRound } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -9,8 +10,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { WorkoutHistoryList } from "@/components/workout-history/WorkoutHistoryList";
+import { approveClientWithProgram, createAccessCode } from "@/lib/access-codes";
 import { type AppAccount, fetchAccount, updateCloudClientAssignment } from "@/lib/cloud-accounts";
 import { type ProgramSummary, loadPrograms } from "@/lib/coach-programs";
+import { CodeRevealDialog } from "./CodeRevealDialog";
 
 const NO_PROGRAM_VALUE = "__no_program__";
 
@@ -19,6 +22,10 @@ export function ClientManagement({ clientId }: { clientId: string }) {
   const [programs, setPrograms] = useState<ProgramSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [approving, setApproving] = useState(false);
+  const [approveMessage, setApproveMessage] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [revealed, setRevealed] = useState<{ code: string; note: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -73,6 +80,51 @@ export function ClientManagement({ clientId }: { clientId: string }) {
       setError("The program assignment could not be saved.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const issueCode = async () => {
+    if (generating) return;
+    setGenerating(true);
+    setError(null);
+    try {
+      const created = await createAccessCode({
+        note: `Client: @${client.username}`,
+        expiryHours: 72,
+      });
+      setRevealed({ code: created.code, note: `Client: @${client.username}` });
+    } catch (nextError) {
+      setError(
+        nextError instanceof Error
+          ? nextError.message
+          : "The access code could not be generated.",
+      );
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const approve = async () => {
+    if (approving) return;
+    if (!client.assignedProgramId) return;
+    setApproving(true);
+    setApproveMessage(null);
+    setError(null);
+    try {
+      await approveClientWithProgram(client.id);
+      const updated = await fetchAccount(client.id);
+      if (updated) setClient(updated);
+      setApproveMessage(
+        `${client.name} is approved. They now have full access to their program and chat.`,
+      );
+    } catch (nextError) {
+      setError(
+        nextError instanceof Error
+          ? nextError.message
+          : "The client could not be approved.",
+      );
+    } finally {
+      setApproving(false);
     }
   };
 
@@ -137,6 +189,82 @@ export function ClientManagement({ clientId }: { clientId: string }) {
         )}
       </section>
 
+      <section aria-labelledby="client-access-heading" className="space-y-3">
+        <div>
+          <h2 id="client-access-heading" className="text-lg font-semibold text-foreground">
+            Access &amp; approval
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Issue a one-time code so the client can sign in, then approve them
+            once their first payment is confirmed.
+          </p>
+        </div>
+
+        <div className="space-y-3 rounded-xl border border-border p-4">
+          <div className="flex items-center gap-2">
+            {client.approvedAt ? (
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-[0.8125rem] font-semibold text-primary">
+                <BadgeCheck className="h-4 w-4" aria-hidden="true" />
+                Approved
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-[#E50910]/40 bg-[#E50910]/10 px-2.5 py-1 text-[0.8125rem] font-semibold text-[#E50910]">
+                Awaiting approval
+              </span>
+            )}
+            {client.approvedAt && (
+              <p className="text-sm text-muted-foreground">
+                Approved {new Date(client.approvedAt).toLocaleDateString()}
+              </p>
+            )}
+          </div>
+
+          {approveMessage && (
+            <p
+              className="rounded-xl border border-primary/40 bg-primary/10 px-4 py-3 text-[1rem] leading-5 text-primary"
+              role="status"
+            >
+              {approveMessage}
+            </p>
+          )}
+
+          <div className="flex flex-wrap gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={generating}
+              onClick={() => void issueCode()}
+              className="min-h-11 rounded-xl text-[1rem] font-semibold"
+            >
+              <KeyRound className="mr-2 h-5 w-5" aria-hidden="true" />
+              {generating ? "Generating…" : "Issue access code"}
+            </Button>
+            {!client.approvedAt && (
+              <Button
+                type="button"
+                disabled={approving || !client.assignedProgramId}
+                onClick={() => void approve()}
+                className="min-h-11 rounded-xl text-[1rem] font-semibold"
+                title={
+                  client.assignedProgramId
+                    ? "Approve this client"
+                    : "Assign a training program before approving"
+                }
+              >
+                <BadgeCheck className="mr-2 h-5 w-5" aria-hidden="true" />
+                {approving ? "Approving…" : "Approve client"}
+              </Button>
+            )}
+          </div>
+
+          {!client.approvedAt && !client.assignedProgramId && (
+            <p className="text-sm text-muted-foreground">
+              Assign a training program above before you can approve this client.
+            </p>
+          )}
+        </div>
+      </section>
+
       <section aria-labelledby="client-workout-history-heading" className="space-y-3">
         <div>
           <h2 id="client-workout-history-heading" className="text-lg font-semibold text-foreground">
@@ -148,6 +276,14 @@ export function ClientManagement({ clientId }: { clientId: string }) {
         </div>
         <WorkoutHistoryList clientId={client.id} />
       </section>
+
+      {revealed && (
+        <CodeRevealDialog
+          code={revealed.code}
+          note={revealed.note}
+          onClose={() => setRevealed(null)}
+        />
+      )}
     </section>
   );
 }

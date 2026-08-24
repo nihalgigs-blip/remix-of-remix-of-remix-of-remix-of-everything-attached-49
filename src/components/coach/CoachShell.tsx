@@ -1,5 +1,5 @@
 import { Link, Outlet, useNavigate, useRouterState, useRouter } from "@tanstack/react-router";
-import { LayoutDashboard, Library, ListChecks, MessageCircle } from "lucide-react";
+import { KeyRound, LayoutDashboard, Library, ListChecks, MessageCircle } from "lucide-react";
 import { useEffect, type ComponentType } from "react";
 import { useAccount } from "@/components/account/AccountProvider";
 import { SettingsMenu } from "@/components/account/SettingsMenu";
@@ -7,7 +7,7 @@ import { ChatButton } from "@/components/chat/ChatButton";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
-  to: "/coach/dashboard" | "/coach/programs" | "/coach/library" | "/coach/chat";
+  to: "/coach/dashboard" | "/coach/programs" | "/coach/library" | "/coach/chat" | "/coach/access-codes";
   label: string;
   icon: ComponentType<{ className?: string }>;
 };
@@ -17,6 +17,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/coach/programs", label: "Program Manager", icon: ListChecks },
   { to: "/coach/library", label: "Library", icon: Library },
   { to: "/coach/chat", label: "Messaging", icon: MessageCircle },
+  { to: "/coach/access-codes", label: "Access Codes", icon: KeyRound },
 ];
 
 export function CoachShell() {
@@ -50,6 +51,7 @@ export function CoachShell() {
           "/coach/programs",
           "/coach/library",
           "/coach/chat",
+          "/coach/access-codes",
         ] as const;
         for (const to of allCoachDestinations) {
           if (to !== pathname) {
@@ -66,6 +68,7 @@ export function CoachShell() {
     pathname === "/coach/programs" || pathname.startsWith("/coach/programs/");
   const isLibraryActive = pathname === "/coach/library" || pathname.startsWith("/coach/library/");
   const isMessagingActive = pathname === "/coach/chat" || pathname.startsWith("/coach/chat/");
+  const isAccessCodesActive = pathname === "/coach/access-codes";
 
   if (loading || account?.role !== "coach") {
     return <div className="min-h-[100dvh] bg-background" />;
