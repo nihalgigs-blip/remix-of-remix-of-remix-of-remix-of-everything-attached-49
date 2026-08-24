@@ -145,3 +145,57 @@ describe("B1 migration guards (server-side security must stay)", () => {
     expect(migration).toMatch(/GRANT EXECUTE ON FUNCTION public\.get_or_create_chat_thread\(uuid\) TO authenticated/);
   });
 });
+
+describe("B2 edge function guards (security invariants stay)", () => {
+  const fn = (name: string) => read(`../../supabase/functions/${name}/index.ts`);
+
+  test("redeem-access-code burns codes and never issues a session", () => {
+    const src = fn("redeem-access-code");
+    expect(src).toMatch(/redeemed_at/);
+    expect(src).toMatch(/ticket_hash/);
+    expect(src).toMatch(/bcrypt\.compare/);
+    expect(src).toMatch(/Too many attempts/);
+    expect(src).toMatch(/This code was already used/);
+    expect(src).not.toMatch(/access_token/); // never returns a session
+    expect(src).not.toMatch(/\.insert\(\{[^}]*code_hash/); // never writes a raw code
+  });
+
+  test("create-client-account enforces rules and never touches auth.users", () => {
+    const src = fn("create-client-account");
+    expect(src).toMatch(/USERNAME_PATTERN = \/\^\[a-z0-9_\]\{3,30\}\$/);
+    expect(src).toMatch(/Your sign-up link has expired/);
+    expect(src).toMatch(/That username is already taken/);
+    expect(src).toMatch(/approved_at/);
+    expect(src).toMatch(/role: "client"/);
+    expect(src).not.toMatch(/admin\.createUser/); // clients never admin-created
+    expect(src).not.toMatch(/signInWithOAuth/);
+  });
+
+  test("coach-login compares against the COACH_ACCESS_HASH secret only", () => {
+    const src = fn("coach-login");
+    expect(src).toMatch(/COACH_ACCESS_HASH/);
+    expect(src).toMatch(/bcrypt\.compare\(password, coachPasswordHash\)/);
+    expect(src).toMatch(/coach_login_ok/);
+    expect(src).toMatch(/coach@nomorecopium\.app/);
+    expect(src).not.toMatch(/COACH_GOOGLE_EMAIL/);
+  });
+
+  test("access-codes returns plaintext exactly once and stores only hashes", () => {
+    const src = fn("access-codes");
+    expect(src).toMatch(/code_hash/);
+    expect(src).toMatch(/bcrypt\.hash\(code, 12\)/);
+    expect(src).toMatch(/return json\(\{ ok: true, id: data\.id, code \}\)/); // 1st: plaintext
+    expect(src).toMatch(/code_prefix/);
+    expect(src).not.toMatch(/code_hash: c\./); // list never returns hashes
+    expect(src).toMatch(/A Coach account is required/);
+  });
+
+  test("account-bootstrap is lookup-only (no account creation path)", () => {
+    const src = fn("account-bootstrap");
+    expect(src).toMatch(/no_account/);
+    expect(src).toMatch(/No account has been created with this Google account/);
+    expect(src).not.toMatch(/\.insert\(/);
+    expect(src).not.toMatch(/COACH_GOOGLE_EMAIL/);
+    expect(src).not.toMatch(/ensurePreviewAccount/);
+  });
+});
